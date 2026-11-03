@@ -74,4 +74,3 @@ tools/          生成词表、生成安装包
 - 配图：[Wikimedia Commons](https://commons.wikimedia.org/)（通过官方 API，图片为 CC BY / CC BY-SA / 公有领域等自由授权，每张图下方注明作者和授权，点击可查看原图页面）
 - 中文释义、用法、例句和翻译由 [DeepSeek](https://www.deepseek.com/) 生成，可能有错误，请以词典原文为准
 
-作者：淀粉
