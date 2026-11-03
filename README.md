@@ -5,6 +5,8 @@
 
 目前仅支持window10/11,需要安装python 3.10 以上版本
 
+神秘小动画宣传片https://www.bilibili.com/video/BV1j3xm6hE2T/?spm_id_from=333.1387.homepage.video_card.click&vd_source=9550160a6efcab58f1e57cbed5332119
+
 Claude我们真厉害😂
 
 - **动词**：完整变位表（现在时、过去时、完成时、虚拟式、命令式……），不规则变化标红，显示助动词 haben/sein
