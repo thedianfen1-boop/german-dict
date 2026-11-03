@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>德语词典</title>
+<link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#/">Wörterbuch</a>
+    <div class="nav-right">
+    <div class="segmented" role="tablist" data-active="dict">
+      <span class="seg-thumb" aria-hidden="true"></span>
+      <button data-tab="dict" class="active" role="tab">查词</button>
+      <button data-tab="translate" role="tab">翻译</button>
+    </div>
+    <button id="settings-btn" class="icon-btn" title="设置" aria-label="设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
+    </button>
+    </div>
+  </div>
+</header>
+
+<dialog id="settings" class="sheet">
+  <form method="dialog" class="sheet-body" id="settings-form">
+    <h2>设置 <span class="sheet-version" id="settings-version">v1.0</span></h2>
+    <label class="field-label" for="key-input">DeepSeek API 密钥</label>
+    <p class="muted" id="key-state"></p>
+    <input id="key-input" type="password" placeholder="粘贴以 sk- 开头的密钥" autocomplete="off" spellcheck="false">
+    <p class="muted">用于中文释义、用法、翻译、配图和中英文查词。密钥只保存在这台电脑上。
+      没有密钥？到 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">DeepSeek 开放平台</a> 创建一个。</p>
+    <p class="error" id="key-msg"></p>
+    <div class="sheet-actions">
+      <button type="button" class="btn-plain" id="settings-cancel">取消</button>
+      <button type="submit" class="btn-primary" id="key-save">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<main>
+  <!-- 查词 -->
+  <section id="tab-dict" class="tab">
+    <div id="hero" class="hero">
+      <h1>德语词典</h1>
+      <p class="subtitle">变位、冠词、难度、用法，一查就懂。</p>
+    </div>
+    <div class="search-wrap">
+    <form id="search-form" class="search" autocomplete="off">
+      <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.06l4.24 4.24a1 1 0 0 1-1.42 1.42l-4.24-4.24A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
+      <input id="q" type="search" placeholder="输入德语、中文或英语，如 gehen、房子、house" spellcheck="false" autofocus>
+      <div class="umlauts" aria-label="插入特殊字母">
+        <button type="button">ä</button><button type="button">ö</button><button type="button">ü</button><button type="button">ß</button>
+      </div>
+    </form>
+    <div id="suggest" class="suggest" role="listbox" hidden></div>
+    </div>
+    <div id="history" class="history"></div>
+    <div id="result"></div>
+  </section>
+
+  <!-- 翻译 -->
+  <section id="tab-translate" class="tab" hidden>
+    <div class="hero">
+      <h1>翻译</h1>
+      <p class="subtitle">德语 ⇄ 中文，自动识别语言。</p>
+    </div>
+    <div class="card translate-card">
+      <textarea id="tr-input" rows="5" placeholder="输入德语或中文句子…"></textarea>
+      <div class="translate-bar">
+        <span class="hint">Ctrl + Enter 翻译</span>
+        <button id="tr-btn" class="btn-primary">翻译</button>
+      </div>
+    </div>
+    <div id="tr-result"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  词条数据来自 <a href="https://zh.verbformen.net/" target="_blank" rel="noopener">Netzverb (zh.verbformen.net)</a>，CC BY-SA 4.0 · 中文释义与翻译由 DeepSeek 生成 · 配图来自 <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> · 词典作者：淀粉<span id="app-version"> · v1.0</span>
+</footer>
+
+<audio id="player" preload="none"></audio>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# 密钥和个人数据——绝不上传
+.env
+data/dict.db
+data/*.log
+
+# 自动生成的文件
+.venv/
+build/
+release/
+__pycache__/
+*.pyc
+*.spec
+
+# 本机快捷方式（含本机路径）
+*.lnk

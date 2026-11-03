@@ -1,0 +1,4 @@
+# start.bat 使用 GBK 编码和 CRLF 换行（中文 Windows 的 cmd 需要），不让 git 转换
+*.bat -text
+*.ico binary
+*.png binary
