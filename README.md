@@ -3,7 +3,7 @@
 
 我在以Netzverb 词典作为词库的基础上，优化了ui界面。接入deepseek api密钥即可解锁满血版，实现中文释义、用法、句子翻译、配图和中英文查词。
 
-目前仅支持window10/11,需要安装python 3.10 以上版本
+目前仅支持 Windows 10/11。使用安装包不需要安装 Python；从源码运行需要 Python 3.10 以上。
 
 神秘小动画宣传片https://www.bilibili.com/video/BV1j3xm6hE2T/?spm_id_from=333.1387.homepage.video_card.click&vd_source=9550160a6efcab58f1e57cbed5332119
 
