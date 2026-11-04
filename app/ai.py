@@ -11,7 +11,7 @@ from . import settings, store
 def _config():
     return (os.getenv("DEEPSEEK_API_KEY", "").strip(),
             os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/"),
-            os.getenv("DEEPSEEK_MODEL", "deepseek-chat"))
+            os.getenv("DEEPSEEK_MODEL", "deepseek-flash"))
 
 
 def enabled() -> bool:
@@ -61,13 +61,87 @@ def _chat(system: str, user: str, as_json: bool) -> str:
                        headers={"Authorization": f"Bearer {key}"})
     except httpx.HTTPError as e:
         raise AIError(f"无法连接 DeepSeek：{e}") from e
-    if r.status_code == 401:
-        raise AIError("DeepSeek 密钥无效，请在右上角的设置里重新填写")
-    if r.status_code == 402:
-        raise AIError("DeepSeek 账户余额不足")
-    if r.status_code != 200:
-        raise AIError(f"DeepSeek 返回错误 {r.status_code}：{r.text[:200]}")
+    _check_status(r.status_code, r.text)
     return r.json()["choices"][0]["message"]["content"]
+
+
+def _check_status(status: int, text: str):
+    if status == 401:
+        raise AIError("DeepSeek 密钥无效，请在右上角的设置里重新填写")
+    if status == 402:
+        raise AIError("DeepSeek 账户余额不足")
+    if status != 200:
+        raise AIError(f"DeepSeek 返回错误 {status}：{text[:200]}")
+
+
+ASK_SYSTEM = """你是一位耐心、严谨的德语老师，正在回答中国学习者关于德语语法、词汇、用法和德语国家知识的问题。
+- 用简体中文回答，先直接给出结论，再简要说明原因；
+- 每个要点配一两个简短的德语例句，并附中文翻译；
+- 使用 Markdown 排版：要点用列表，变格、变位等对比内容用表格，德语关键词加粗；
+- 不确定的内容要明确说明，不要编造规则；
+- 如果问题与德语学习无关，简短回应后引导回德语学习。"""
+
+ASK_MAX_MESSAGES = 20  # 只把最近的对话发给 DeepSeek，避免越聊越贵
+
+
+def ask_model() -> str:
+    """问 AI 使用的模型：用户选过的优先，否则用默认模型。"""
+    return os.getenv("DEEPSEEK_ASK_MODEL", "").strip() or _config()[2]
+
+
+def list_models() -> list[str]:
+    """向 DeepSeek 查询当前账户可用的模型（不写死，模型更新后自动跟上）。"""
+    key, base, _ = _config()
+    if not enabled():
+        raise AIError("还没有设置 DeepSeek 密钥，请点击右上角的设置按钮添加")
+    try:
+        r = httpx.get(f"{base}/models", headers={"Authorization": f"Bearer {key}"}, timeout=20)
+    except httpx.HTTPError as e:
+        raise AIError(f"无法连接 DeepSeek：{e}") from e
+    _check_status(r.status_code, r.text)
+    return [m["id"] for m in r.json().get("data", []) if m.get("id")]
+
+
+def set_ask_model(model: str):
+    if model not in list_models():
+        raise AIError(f"DeepSeek 目前没有 {model} 这个模型")
+    try:
+        settings.save("DEEPSEEK_ASK_MODEL", model)
+    except OSError as e:
+        raise AIError(str(e)) from e
+
+
+def ask_stream(messages: list[dict]):
+    """流式回答问题，逐段产出文字。出错时抛出 AIError。"""
+    key, base, _ = _config()
+    model = ask_model()
+    if not enabled():
+        raise AIError("还没有设置 DeepSeek 密钥，请点击右上角的设置按钮添加")
+    body = {
+        "model": model,
+        "messages": [{"role": "system", "content": ASK_SYSTEM}, *messages[-ASK_MAX_MESSAGES:]],
+        "temperature": 0.5,
+        "stream": True,
+    }
+    try:
+        with httpx.stream("POST", f"{base}/chat/completions", json=body,
+                          headers={"Authorization": f"Bearer {key}"},
+                          timeout=httpx.Timeout(60, connect=15)) as r:
+            if r.status_code != 200:
+                r.read()
+                _check_status(r.status_code, r.text)
+            for line in r.iter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    return
+                choices = json.loads(data).get("choices") or [{}]
+                text = choices[0].get("delta", {}).get("content")
+                if text:
+                    yield text
+    except httpx.HTTPError as e:
+        raise AIError(f"无法连接 DeepSeek：{e}") from e
 
 
 def _cached(key, fn):
@@ -159,13 +233,31 @@ VISUAL_SYSTEM = """为德语词典的单词配一张帮助理解的图片。根�
            必须是该词最常用含义对应的具体、可拍照的物体或场景，就像照片文件名里会出现的词。
            英文词有歧义时（可能是地名、人名或其他意思），加一个限定词让它只指这个物体
            （如 Heft→school notebook、Brille→eyeglasses、Gabel→table fork、Schlüssel→door key、
-           laufen→person running）；
-           如果该词是抽象词、功能词（如 weil、und、schön 这类难以用照片表达的），则为空字符串"}
+           laufen→person running、Frau→woman portrait、Kind→child playing）；
+           如果该词是抽象词、功能词（如 weil、und、schön 这类难以用照片表达的），
+           或与人体部位、疾病医疗、死亡、性、暴力相关，则为空字符串（只显示 emoji）"}
 只输出 JSON。"""
 
 
 def visual(info: dict) -> dict:
-    key = "visual4:" + info.get("lemma", "") + ":" + info.get("kind", "")
+    key = "visual5:" + info.get("lemma", "") + ":" + info.get("kind", "")
     payload = {k: info.get(k) for k in ("lemma", "kind", "english")}
     return _cached(key, lambda: json.loads(
         _chat(VISUAL_SYSTEM, json.dumps(payload, ensure_ascii=False), as_json=True)))
+
+
+PICK_SYSTEM = """你在为面向所有年龄的德语学习词典挑选配图。用户给出单词、搜索词和候选图片的文件名（带序号）。
+只根据文件名判断，挑出最能让学习者一眼理解这个词最常用含义的日常、清晰、有代表性的照片。
+必须排除：
+- 裸露、性相关；尸体、木乃伊、死亡；疾病、医疗、解剖、X 光；暴力、战争、灾难、武器；
+- 童工、贫困、苦难等令人不适的内容；政治或宗教争议内容；
+- 与词义无关的（同名的地名、人名、乐队、公司、船只等）；图表、地图、徽标、文档扫描、历史绘画。
+拿不准的宁可不选。输出 JSON：{"keep": [序号, ...]}，按合适程度从高到低，最多 6 个；都不合适就输出空数组。只输出 JSON。"""
+
+
+def pick_images(info: dict, query: str, titles: list[str]) -> list[int]:
+    key = "pick:" + info.get("lemma", "") + ":" + info.get("kind", "") + ":" + query.lower()
+    payload = {"word": info.get("lemma"), "english": (info.get("english") or [])[:4], "query": query,
+               "candidates": [{"i": i, "file": t} for i, t in enumerate(titles)]}
+    return _cached(key, lambda: json.loads(
+        _chat(PICK_SYSTEM, json.dumps(payload, ensure_ascii=False), as_json=True)))["keep"]

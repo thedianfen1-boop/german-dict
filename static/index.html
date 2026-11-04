@@ -17,6 +17,7 @@
       <span class="seg-thumb" aria-hidden="true"></span>
       <button data-tab="dict" class="active" role="tab">查词</button>
       <button data-tab="translate" role="tab">翻译</button>
+      <button data-tab="ask" role="tab">问 AI</button>
     </div>
     <button id="settings-btn" class="icon-btn" title="设置" aria-label="设置">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94a7.07 7.07 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.59.24-1.13.56-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.38 1.04.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54c.59-.24 1.13-.56 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/></svg>
@@ -51,9 +52,9 @@
     <div class="search-wrap">
     <form id="search-form" class="search" autocomplete="off">
       <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 3a7.5 7.5 0 0 1 5.96 12.06l4.24 4.24a1 1 0 0 1-1.42 1.42l-4.24-4.24A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z"/></svg>
-      <input id="q" type="search" placeholder="输入德语、中文或英语，如 gehen、房子、house" spellcheck="false" autofocus>
-      <div class="umlauts" aria-label="插入特殊字母">
-        <button type="button">ä</button><button type="button">ö</button><button type="button">ü</button><button type="button">ß</button>
+      <input id="q" type="text" placeholder="输入德语、中文或英语，如 gehen、房子、house" spellcheck="false" autofocus>
+      <div class="umlauts" data-target="q" aria-label="插入特殊字母">
+        <button type="button" class="clear-btn" title="清空" aria-label="清空">×</button><button type="button">ä</button><button type="button">ö</button><button type="button">ü</button><button type="button">ß</button>
       </div>
     </form>
     <div id="suggest" class="suggest" role="listbox" hidden></div>
@@ -72,10 +73,52 @@
       <textarea id="tr-input" rows="5" placeholder="输入德语或中文句子…"></textarea>
       <div class="translate-bar">
         <span class="hint">Ctrl + Enter 翻译</span>
-        <button id="tr-btn" class="btn-primary">翻译</button>
+        <div class="translate-actions">
+          <div class="umlauts" data-target="tr-input" aria-label="插入特殊字母">
+            <button type="button" class="clear-btn" title="清空" aria-label="清空">×</button><button type="button">ä</button><button type="button">ö</button><button type="button">ü</button><button type="button">ß</button>
+          </div>
+          <button id="tr-btn" class="btn-primary">翻译</button>
+        </div>
       </div>
     </div>
     <div id="tr-result"></div>
+  </section>
+
+  <!-- 问 AI -->
+  <section id="tab-ask" class="tab" hidden>
+    <div class="hero" id="ask-hero">
+      <h1>问 AI</h1>
+      <p class="subtitle">语法、用法、知识点，都可以问。</p>
+    </div>
+    <div id="ask-suggestions" class="ask-suggestions">
+      <button class="chip">der、die、das 怎么区分？</button>
+      <button class="chip">第三格和第四格有什么区别？</button>
+      <button class="chip">什么时候用 sein 构成完成时？</button>
+      <button class="chip">weil 和 denn 有什么不同？</button>
+    </div>
+    <div id="ask-messages" class="ask-messages"></div>
+    <div class="ask-composer">
+      <form id="ask-form" class="ask-box">
+        <textarea id="ask-input" rows="1" placeholder="输入你的问题，Enter 发送，Shift + Enter 换行"></textarea>
+        <div class="umlauts" data-target="ask-input" aria-label="插入特殊字母">
+          <button type="button" class="clear-btn" title="清空" aria-label="清空">×</button><button type="button">ä</button><button type="button">ö</button><button type="button">ü</button><button type="button">ß</button>
+        </div>
+        <button type="submit" id="ask-send" class="btn-primary">发送</button>
+      </form>
+      <div class="ask-tools" id="ask-tools">
+        <span class="hint">回答由 DeepSeek 生成，可能有错误</span>
+        <div class="ask-tools-right">
+          <div class="model-picker">
+            <button type="button" class="model-btn" id="model-btn" aria-haspopup="listbox" aria-expanded="false" title="切换 AI 模型">
+              <span id="model-name">模型</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+            </button>
+            <div class="model-menu" id="model-menu" role="listbox" hidden></div>
+          </div>
+          <button type="button" class="link-btn" id="ask-new">新对话</button>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 

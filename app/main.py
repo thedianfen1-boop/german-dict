@@ -1,3 +1,5 @@
+from typing import Literal
+
 import httpx
 from dotenv import load_dotenv
 
@@ -6,7 +8,7 @@ from .paths import ENV_FILE, STATIC_DIR  # noqa: E402
 load_dotenv(ENV_FILE)
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.responses import Response  # noqa: E402
+from fastapi.responses import Response, StreamingResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -27,7 +29,7 @@ async def revalidate_static(request, call_next):
 
 @app.get("/api/status")
 def status():
-    return {"ai": ai.enabled(), "key": ai.masked_key(), "version": VERSION}
+    return {"ai": ai.enabled(), "key": ai.masked_key(), "askModel": ai.ask_model(), "version": VERSION}
 
 
 class KeyIn(BaseModel):
@@ -103,6 +105,11 @@ def image(info: GlossIn):
     return images.picture(info.model_dump())
 
 
+@app.post("/api/image/emoji")
+def image_emoji(info: GlossIn):
+    return {"emoji": images.emoji(info.model_dump())}
+
+
 @app.get("/api/thumb")
 def thumb(url: str):
     if not images.allowed(url):
@@ -112,6 +119,59 @@ def thumb(url: str):
                         headers={"Cache-Control": "max-age=604800"})
     except httpx.HTTPError:
         raise HTTPException(502, "无法获取图片")
+
+
+class AskMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AskIn(BaseModel):
+    messages: list[AskMessage]
+
+
+class ModelIn(BaseModel):
+    model: str
+
+
+@app.get("/api/ask/models")
+def ask_models():
+    try:
+        return {"current": ai.ask_model(), "models": ai.list_models()}
+    except ai.AIError as e:
+        raise HTTPException(503, str(e))
+
+
+@app.post("/api/ask/model")
+def set_ask_model(body: ModelIn):
+    try:
+        ai.set_ask_model(body.model)
+    except ai.AIError as e:
+        raise HTTPException(400, str(e))
+    return {"current": ai.ask_model()}
+
+
+@app.post("/api/ask")
+def ask(body: AskIn):
+    if not body.messages or body.messages[-1].role != "user" or not body.messages[-1].content.strip():
+        raise HTTPException(400, "请输入问题")
+    if len(body.messages[-1].content) > 2000:
+        raise HTTPException(400, "一次最多输入 2000 个字符")
+    stream = ai.ask_stream([m.model_dump() for m in body.messages])
+    try:
+        # 先取第一段：密钥无效、余额不足这类错误要在响应开始前报告
+        first = next(stream, "")
+    except ai.AIError as e:
+        raise HTTPException(503, str(e))
+
+    def chunks():
+        yield first
+        try:
+            yield from stream
+        except ai.AIError as e:
+            yield f"\n\n（回答中断：{e}）"
+
+    return StreamingResponse(chunks(), media_type="text/plain; charset=utf-8")
 
 
 class TranslateIn(BaseModel):

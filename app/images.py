@@ -33,14 +33,27 @@ def _text(html: str) -> str:
     return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", "", html or ""))).strip()
 
 
+# Commons 的接口没有安全搜索，这是公开的学习软件，要把不合适的图片挡在外面。分两层：
+# 这里按文件名黑名单过滤（没有 DeepSeek 时也生效），_pick 再让 DeepSeek 按文件名挑选。
+# 都只能看文件名，看不到图片本身，所以不能保证完全过滤。
+UNSAFE_TERMS = ["nude", "nudes", "nudity", "naked", "topless", "erotic", "porn", "pornography",
+                "sex", "sexual", "genitals", "penis", "vagina", "breasts", "nsfw", "lingerie"]
+_UNSAFE = re.compile(r"(?<![a-z])(" + "|".join(UNSAFE_TERMS) + r")(?![a-z])", re.I)
+
+
+def _safe(items: list[dict]) -> list[dict]:
+    return [x for x in items if not _UNSAFE.search(x["title"].replace("_", " "))]
+
+
 def search(query: str) -> list[dict]:
-    key = "commons:" + query.lower()
+    key = "commons2:" + query.lower()
     hit = store.get_ai(key)
     if hit:
         return hit
     params = {
         "action": "query", "format": "json", "generator": "search",
-        "gsrsearch": f"{query} filetype:bitmap", "gsrnamespace": 6, "gsrlimit": 10,
+        "gsrsearch": f"{query} filetype:bitmap",
+        "gsrnamespace": 6, "gsrlimit": 20,  # 多取一些候选，供 _pick 挑选
         "prop": "imageinfo", "iiprop": "url|mime|extmetadata", "iiurlwidth": 400,
         "iiextmetadatafilter": "Artist|LicenseShortName"}
     pages = []
@@ -69,7 +82,7 @@ def search(query: str) -> list[dict]:
             "_score": sum(w in title.lower() for w in words) + (len(words) if all(w in title.lower() for w in words) else 0),
         })
     results.sort(key=lambda x: -x.pop("_score"))
-    results = results[:6]
+    results = _safe(results)
     if results:  # 空结果不缓存，下次再试
         store.put_ai(key, results)
     return results
@@ -85,21 +98,53 @@ def thumbnail(url: str) -> bytes:
     return data
 
 
-def _build(info: dict) -> dict:
-    emoji, query = "", ""
-    if ai.enabled():
+MAX_IMAGES = 6
+
+
+def _pick(info: dict, query: str, candidates: list[dict]) -> list[dict]:
+    """让 DeepSeek 按文件名挑出适合语言学习的图片；DeepSeek 不可用时只保留黑名单过滤的结果。"""
+    if not ai.enabled():
+        return candidates[:MAX_IMAGES]
+    try:
+        keep = ai.pick_images(info, query, [c["title"] for c in candidates])
+    except (ai.AIError, ValueError, KeyError):
+        return candidates[:MAX_IMAGES]
+    picked = [candidates[i] for i in keep if isinstance(i, int) and 0 <= i < len(candidates)]
+    return picked[:MAX_IMAGES]
+
+
+_visual_locks: dict[str, threading.Lock] = {}
+
+
+def _visual(info: dict) -> dict:
+    """取 emoji 和搜索词。同一个词同时只调用一次 DeepSeek，其余请求等结果（已缓存）。"""
+    if not ai.enabled():
+        return {}
+    key = f"{info.get('lemma', '')}:{info.get('kind', '')}"
+    with _lock:
+        lock = _visual_locks.setdefault(key, threading.Lock())
+    with lock:
         try:
-            v = ai.visual(info)
-            emoji, query = v.get("emoji", ""), (v.get("query") or "").strip()
+            return ai.visual(info)
         except (ai.AIError, ValueError):
-            pass
+            return {}
+
+
+def emoji(info: dict) -> str:
+    """配图的第一步：先拿到 emoji 显示，不用等照片搜索和挑选。"""
+    return _visual(info).get("emoji", "")
+
+
+def _build(info: dict) -> dict:
+    v = _visual(info)
+    emoji, query = v.get("emoji", ""), (v.get("query") or "").strip()
     queries = [query] if query else []
     if not query and not emoji and info.get("kind") == "noun":
         queries = list(info.get("english") or [])[:3]  # DeepSeek 不可用时，名词退而用英文释义搜索
     found = []
     for q in queries:
         try:
-            found = search(q)
+            found = _pick(info, q, search(q))
         except (httpx.HTTPError, ValueError):
             found = []
         if found:
