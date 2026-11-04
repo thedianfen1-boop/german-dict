@@ -1,6 +1,13 @@
 # 德语词典 Wörterbuch
+因为没找到好用的词典，我就自己做了个德语词典......
 
-一个在自己电脑上运行的德语学习词典，界面参考苹果风格，支持浅色/深色模式。
+我在以Netzverb 词典作为词库的基础上，优化了ui界面。接入deepseek api密钥即可解锁满血版，实现中文释义、用法、句子翻译、配图和中英文查词。
+
+目前仅支持window10/11,需要安装python 3.10 以上版本
+
+神秘小动画宣传片https://www.bilibili.com/video/BV1j3xm6hE2T/?spm_id_from=333.1387.homepage.video_card.click&vd_source=9550160a6efcab58f1e57cbed5332119
+
+Claude我们真厉害😂
 
 - **动词**：完整变位表（现在时、过去时、完成时、虚拟式、命令式……），不规则变化标红，显示助动词 haben/sein
 - **名词**：冠词按颜色区分（der 粉 / die 蓝 / das 绿），单复数变格表
@@ -14,6 +21,7 @@
 - **翻译**：德语 ⇄ 中文句子翻译
 - **问 AI**：随时提问语法、用法和知识点，可以连续追问
 - **发音**：真人朗读
+- **注意**：需要接入deepseek api 才能解锁满血版
 
 ## 安装（Windows 10/11）
 
@@ -69,4 +77,3 @@ tools/          生成词表、生成安装包
 - 配图：[Wikimedia Commons](https://commons.wikimedia.org/)（通过官方 API，图片为 CC BY / CC BY-SA / 公有领域等自由授权，每张图下方注明作者和授权，点击可查看原图页面）。图片由 AI 按文件名筛选，无法保证完全过滤
 - 中文释义、用法、例句和翻译由 [DeepSeek](https://www.deepseek.com/) 生成，可能有错误，请以词典原文为准
 
-作者：淀粉
