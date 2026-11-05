@@ -1,4 +1,7 @@
 # start.bat 使用 GBK 编码和 CRLF 换行（中文 Windows 的 cmd 需要），不让 git 转换
 *.bat -text
+# macOS 启动脚本必须保持 LF 换行，否则双击无法执行
+*.command text eol=lf
+*.sh text eol=lf
 *.ico binary
 *.png binary

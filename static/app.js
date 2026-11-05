@@ -20,7 +20,7 @@ async function api(path, opts = {}) {
       headers: opts.body ? { "Content-Type": "application/json" } : undefined,
     });
   } catch {
-    throw new Error("连不上词典程序。请双击 start.bat 启动，并保持那个黑色窗口开着。");
+    throw new Error("连不上词典程序。请先启动词典服务（macOS 双击 start.command，Windows 双击 start.bat），并保持窗口开着。");
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || `请求失败 (${res.status})`);
@@ -42,26 +42,6 @@ function lemmaHtml(lemma) {
 
 const playBtn = (url) =>
   url ? `<button class="play" data-audio="${esc(url)}" title="朗读">${PLAY_ICON}</button>` : "";
-
-const COPY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H6a2 2 0 0 0-2 2v13h2V3h10V1Zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16h-9V7h9v14Z"/></svg>';
-const COPIED_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L21 7.5l-1.4-1.4L9.5 16.2Z"/></svg>';
-// 复制的是词头（名词带冠词）；可分动词去掉分隔点：auf·stehen → aufstehen
-const copyBtn = (word) =>
-  `<button class="copy-btn" data-copy="${esc(word.replace(/·/g, ""))}" title="复制单词" aria-label="复制单词">${COPY_ICON}</button>`;
-
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // 个别环境不允许访问剪贴板时的备用方法
-    const t = document.createElement("textarea");
-    t.value = text;
-    document.body.append(t);
-    t.select();
-    document.execCommand("copy");
-    t.remove();
-  }
-}
 
 function tagsHtml(tags, kind) {
   const list = [...tags];
@@ -129,15 +109,11 @@ function tablesCard(data) {
     <div class="tables" id="tables">${groupHtml(data.groups[0])}</div></div>`;
 }
 
-// “Trinkwassern/Trinkwässern” 这样的两种写法中间没有空格，要允许在 / 后换行
-// 只处理文字里的 /，不能碰到 </u> 这样的标签
-const breakAfterSlash = (s) => s.replace(/\/(?![^<]*>)/g, "/<wbr>");
-
 function groupHtml(g) {
   return g.tables.map((t) => `<div class="tbl">${t.title ? `<h3>${esc(t.title)}</h3>` : ""}<table>
     ${t.rows.map((r) => r.length > 1
-      ? `<tr><td class="p">${r[0]}</td><td class="w">${breakAfterSlash(r.slice(1).join(" "))}</td></tr>`
-      : `<tr><td class="w">${breakAfterSlash(r[0])}</td></tr>`).join("")}
+      ? `<tr><td class="p">${r[0]}</td><td class="w">${r.slice(1).join(" ")}</td></tr>`
+      : `<tr><td class="w">${r[0]}</td></tr>`).join("")}
     </table></div>`).join("");
 }
 
@@ -151,7 +127,7 @@ function renderDetail(res) {
       <div class="head-card">
         <div class="head-info">
           <div class="head-top">${levelBadge(d.level)}${tagsHtml(d.tags, d.kind)}</div>
-          <div class="lemma-row"><div class="lemma">${lemmaHtml(d.lemma)}</div>${playBtn(d.audio)}${copyBtn(d.lemma)}</div>
+          <div class="lemma-row"><div class="lemma">${lemmaHtml(d.lemma)}</div>${playBtn(d.audio)}</div>
           ${d.forms ? `<div class="forms">${d.forms}</div>` : ""}
           ${d.ipa ? `<div class="ipa">${esc(d.ipa)}</div>` : ""}
           ${d.notes ? `<div class="notes">${esc(d.notes)}</div>` : ""}
@@ -185,21 +161,16 @@ async function loadPicture(info) {
   const fig = $("#pic");
   if (!fig) return;
   const seq = lookupSeq;
-  const body = JSON.stringify({ lemma: info.lemma, kind: info.kind, english: (info.english || []).slice(0, 6) });
-  // 第一次查的词，搜索和挑选照片要等一阵，先显示 emoji，照片到了再替换
-  let settled = false;
-  api("/api/image/emoji", { method: "POST", body }).then((q) => {
-    if (!settled && seq === lookupSeq && q.emoji) fig.innerHTML = `<div class="pic-box pic-emoji">${esc(q.emoji)}</div>`;
-  }).catch(() => {});
   let r;
   try {
-    r = await api("/api/image", { method: "POST", body });
+    r = await api("/api/image", {
+      method: "POST",
+      body: JSON.stringify({ lemma: info.lemma, kind: info.kind, english: (info.english || []).slice(0, 6) }),
+    });
   } catch {
-    settled = true;
     if (seq === lookupSeq) fig.remove();
     return;
   }
-  settled = true;
   if (seq !== lookupSeq) return;
   let i = 0;
   const emoji = () => {
@@ -228,7 +199,7 @@ function renderList(res) {
   entries.forEach((e, i) => {
     html += `<div class="card">
       <div class="head-top">${levelBadge(e.level)}${tagsHtml(e.tags, e.kind)}</div>
-      <div class="entry-head"><div class="lemma">${esc(e.lemma)}</div>${copyBtn(e.lemma)}${e.ipa ? `<span class="ipa">${esc(e.ipa)}</span>` : ""}</div>
+      <div class="entry-head"><div class="lemma">${esc(e.lemma)}</div>${e.ipa ? `<span class="ipa">${esc(e.ipa)}</span>` : ""}</div>
       ${e.forms ? `<div class="forms">${e.forms}</div>` : ""}
       ${e.definition ? `<p class="muted">${esc(e.definition)}</p>` : ""}
       ${e.example ? examplesHtml([e.example]) : ""}
@@ -315,17 +286,10 @@ async function lookup(word, path, lang = "") {
   }
 }
 
-// 程序填入单词时，光标要跟着移到词尾（否则可能还画在输入框为空时的位置）
-function setQuery(word) {
-  const q = $("#q");
-  q.value = word;
-  if (document.activeElement === q) q.setSelectionRange(word.length, word.length);
-}
-
 function go(word) {
   word = word.trim();
   if (!word) return;
-  setQuery(word);
+  $("#q").value = word;
   const h = `#/w/${encodeURIComponent(word)}`;
   if (location.hash === h) lookup(word); else location.hash = h;
 }
@@ -351,13 +315,12 @@ async function showHome() {
 function route() {
   const hash = location.hash;
   if (hash.startsWith("#/translate")) return switchTab("translate", false);
-  if (hash.startsWith("#/ask")) return switchTab("ask", false);
   switchTab("dict", false);
   lastDictHash = hash || "#/";
   let m = /^#\/w\/(.+)$/.exec(hash);
-  if (m) { const w = decodeURIComponent(m[1]); setQuery(w); return lookup(w); }
+  if (m) { const w = decodeURIComponent(m[1]); $("#q").value = w; return lookup(w); }
   m = /^#\/en\/(.+)$/.exec(hash);
-  if (m) { const w = decodeURIComponent(m[1]); setQuery(w); return lookup(w, null, "en"); }
+  if (m) { const w = decodeURIComponent(m[1]); $("#q").value = w; return lookup(w, null, "en"); }
   m = /^#\/p\/(.+)$/.exec(hash);
   if (m) return lookup(null, decodeURIComponent(m[1]));
   showHome();
@@ -370,16 +333,14 @@ function switchTab(tab, push = true) {
   seg.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   $("#tab-dict").hidden = tab !== "dict";
   $("#tab-translate").hidden = tab !== "translate";
-  $("#tab-ask").hidden = tab !== "ask";
   if (changed) {
     const el = $(`#tab-${tab}`);
     el.classList.remove("entering");
     void el.offsetWidth; // 重新触发淡入动画
     el.classList.add("entering");
   }
-  if (push) location.hash = tab === "dict" ? lastDictHash : `#/${tab}`;
+  if (push) location.hash = tab === "translate" ? "#/translate" : lastDictHash;
   if (tab === "translate") setTimeout(() => $("#tr-input").focus(), 0);
-  if (tab === "ask") setTimeout(() => $("#ask-input").focus(), 0);
 }
 
 /* ---------- 翻译 ---------- */
@@ -401,239 +362,6 @@ async function translate() {
     btn.disabled = false; btn.textContent = "翻译";
   }
 }
-
-/* ---------- 问 AI ---------- */
-
-const ASK_STORE = "ask-messages";
-let askMessages = [];
-let askAbort = null;
-
-// 把 AI 回答的 Markdown 转成 HTML：所有文字先转义，只生成下面这些固定标签
-function mdInline(s) {
-  return esc(s)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
-}
-
-function mdTableRow(line, tag) {
-  const cells = line.trim().replace(/^\||\|$/g, "").split("|");
-  return `<tr>${cells.map((c) => `<${tag}>${mdInline(c.trim())}</${tag}>`).join("")}</tr>`;
-}
-
-function renderMarkdown(src) {
-  const lines = src.split("\n");
-  const isTableSep = (l) => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l || "") && (l || "").includes("-") && (l || "").includes("|");
-  let html = "", i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (/^\s*```/.test(line)) {
-      const code = [];
-      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i]);
-      i++;
-      html += `<pre><code>${esc(code.join("\n"))}</code></pre>`;
-    } else if (line.includes("|") && isTableSep(lines[i + 1])) {
-      let rows = mdTableRow(line, "th");
-      for (i += 2; i < lines.length && lines[i].includes("|"); i++) rows += mdTableRow(lines[i], "td");
-      html += `<div class="ask-table-wrap"><table>${rows}</table></div>`;
-    } else if (/^#{1,6}\s/.test(line)) {
-      html += `<h4>${mdInline(line.replace(/^#+\s*/, ""))}</h4>`;
-      i++;
-    } else if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
-      html += "<hr>";
-      i++;
-    } else if (/^\s*>/.test(line)) {
-      const quote = [];
-      for (; i < lines.length && /^\s*>/.test(lines[i]); i++) quote.push(mdInline(lines[i].replace(/^\s*>\s?/, "")));
-      html += `<blockquote>${quote.join("<br>")}</blockquote>`;
-    } else if (/^\s*([-*+]|\d+\.)\s/.test(line)) {
-      const tag = /^\s*\d+\./.test(line) ? "ol" : "ul";
-      const items = [];
-      for (; i < lines.length && /^\s*([-*+]|\d+\.)\s/.test(lines[i]); i++) items.push(`<li>${mdInline(lines[i].replace(/^\s*([-*+]|\d+\.)\s/, ""))}</li>`);
-      html += `<${tag}>${items.join("")}</${tag}>`;
-    } else if (!line.trim()) {
-      i++;
-    } else {
-      const para = [];
-      for (; i < lines.length && lines[i].trim() && !/^(\s*```|#{1,6}\s|\s*>|\s*([-*+]|\d+\.)\s)/.test(lines[i]) && !(lines[i].includes("|") && isTableSep(lines[i + 1])); i++) para.push(mdInline(lines[i]));
-      if (!para.length) { html += `<p>${mdInline(lines[i])}</p>`; i++; } else html += `<p>${para.join("<br>")}</p>`;
-    }
-  }
-  return html;
-}
-
-function askMessageHtml(m) {
-  return m.role === "user"
-    ? `<div class="ask-msg user">${esc(m.content)}</div>`
-    : `<div class="ask-msg assistant">${renderMarkdown(m.content)}</div>`;
-}
-
-function askRender() {
-  $("#ask-messages").innerHTML = askMessages.map(askMessageHtml).join("");
-  const chatting = askMessages.length > 0;
-  $("#tab-ask").classList.toggle("chatting", chatting);
-  $("#ask-new").hidden = !chatting;
-}
-
-function askSave() {
-  try { localStorage.setItem(ASK_STORE, JSON.stringify(askMessages.slice(-100))); } catch {}
-}
-
-function askSetBusy(busy) {
-  const btn = $("#ask-send");
-  btn.textContent = busy ? "停止" : "发送";
-  btn.classList.toggle("is-stop", busy);
-}
-
-const askNearBottom = () => innerHeight + scrollY >= document.documentElement.scrollHeight - 120;
-const askScrollDown = () => window.scrollTo(0, document.documentElement.scrollHeight);
-
-async function askSend(text) {
-  text = text.trim();
-  if (!text || askAbort) return;
-  $("#ask-input").value = "";
-  askAutosize();
-  askMessages.push({ role: "user", content: text });
-  askRender();
-  askScrollDown();
-  const box = document.createElement("div");
-  box.className = "ask-msg assistant";
-  box.innerHTML = '<span class="muted">思考中…</span><span class="ask-cursor"></span>';
-  $("#ask-messages").append(box);
-  askScrollDown();
-
-  const controller = new AbortController();
-  askAbort = controller;
-  askSetBusy(true);
-  let answer = "";
-  try {
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: askMessages }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || `请求失败 (${res.status})`);
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      answer += decoder.decode(value, { stream: true });
-      const follow = askNearBottom();
-      box.innerHTML = renderMarkdown(answer) + '<span class="ask-cursor"></span>';
-      if (follow) askScrollDown();
-    }
-    if (!answer) throw new Error("DeepSeek 没有返回内容，请重试");
-  } catch (e) {
-    if (e.name !== "AbortError") {
-      // 出错时不把这一问留在上下文里，把问题放回输入框方便重试
-      if (!answer) {
-        askMessages.pop();
-        $("#ask-input").value = text;
-        askAutosize();
-        askRender();
-        const message = /fetch|network/i.test(e.message) ? "连不上词典程序，请确认程序在运行。" : e.message;
-        $("#ask-messages").insertAdjacentHTML("beforeend", `<div class="ask-msg error">${esc(message)}</div>`);
-      }
-    } else if (!answer) {
-      askMessages.pop();
-      $("#ask-input").value = text;
-      askAutosize();
-      askRender();
-    }
-  } finally {
-    if (askMessages.at(-1)?.role === "user" && answer) askMessages.push({ role: "assistant", content: answer });
-    if (answer) box.innerHTML = renderMarkdown(answer);
-    askAbort = null;
-    askSetBusy(false);
-    askSave();
-  }
-}
-
-function askAutosize() {
-  const t = $("#ask-input");
-  t.style.height = "auto";
-  t.style.height = `${t.scrollHeight}px`;
-}
-
-try { askMessages = JSON.parse(localStorage.getItem(ASK_STORE)) || []; } catch { askMessages = []; }
-askRender();
-
-$("#ask-form").addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (askAbort) askAbort.abort(); else askSend($("#ask-input").value);
-});
-$("#ask-input").addEventListener("input", askAutosize);
-$("#ask-input").addEventListener("keydown", (e) => {
-  // isComposing：用输入法打中文时，按回车是选字，不能发送
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
-    e.preventDefault();
-    if (!askAbort) askSend($("#ask-input").value);
-  }
-});
-$("#ask-suggestions").addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (b) askSend(b.textContent);
-});
-$("#ask-new").addEventListener("click", () => {
-  if (askAbort) askAbort.abort();
-  askMessages = [];
-  askSave();
-  askRender();
-  $("#ask-input").focus();
-});
-
-// 模型切换：列表实时来自 DeepSeek，所选模型只用于“问 AI”
-let modelCurrent = "";
-
-function modelMenuClose() {
-  $("#model-menu").hidden = true;
-  $("#model-btn").setAttribute("aria-expanded", "false");
-}
-
-function modelMenuRender(models) {
-  $("#model-menu").innerHTML = models.map((m) =>
-    `<button type="button" class="model-item${m === modelCurrent ? " active" : ""}" role="option" data-model="${esc(m)}">
-      <span>${esc(m)}</span><span class="check">✓</span></button>`).join("");
-}
-
-async function modelMenuOpen() {
-  const menu = $("#model-menu");
-  menu.innerHTML = '<div class="model-note">正在获取模型列表…</div>';
-  menu.hidden = false;
-  $("#model-btn").setAttribute("aria-expanded", "true");
-  try {
-    const r = await api("/api/ask/models");
-    modelCurrent = r.current;
-    $("#model-name").textContent = modelCurrent;
-    modelMenuRender(r.models);
-  } catch (e) {
-    menu.innerHTML = `<div class="model-note">${esc(e.message)}</div>`;
-  }
-}
-
-$("#model-btn").addEventListener("click", () => {
-  if ($("#model-menu").hidden) modelMenuOpen(); else modelMenuClose();
-});
-$("#model-menu").addEventListener("click", async (e) => {
-  const item = e.target.closest("[data-model]");
-  if (!item) return;
-  try {
-    const r = await api("/api/ask/model", { method: "POST", body: JSON.stringify({ model: item.dataset.model }) });
-    modelCurrent = r.current;
-    $("#model-name").textContent = modelCurrent;
-    modelMenuClose();
-  } catch (err) {
-    $("#model-menu").innerHTML = `<div class="model-note">${esc(err.message)}</div>`;
-  }
-});
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".model-picker")) modelMenuClose();
-});
 
 /* ---------- 输入联想 ---------- */
 
@@ -714,21 +442,14 @@ $("#search-form").addEventListener("submit", (e) => {
   hideSuggest(); sug.items = [];
   go($("#q").value);
 });
-// ä ö ü ß 按钮：把字母插入 data-target 指定的输入框的光标处
-document.querySelectorAll(".umlauts").forEach((group) => group.addEventListener("click", (e) => {
+$(".umlauts").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  const q = document.getElementById(group.dataset.target);
-  if (b.classList.contains("clear-btn")) {
-    q.value = "";
-    q.focus();
-  } else {
-    const s = q.selectionStart ?? q.value.length, t = q.selectionEnd ?? s;
-    q.value = q.value.slice(0, s) + b.textContent + q.value.slice(t);
-    q.focus(); q.setSelectionRange(s + 1, s + 1);
-  }
-  q.dispatchEvent(new Event("input", { bubbles: true })); // 触发输入联想、输入框自动增高
-}));
+  const q = $("#q"), s = q.selectionStart ?? q.value.length, t = q.selectionEnd ?? s;
+  q.value = q.value.slice(0, s) + b.textContent + q.value.slice(t);
+  q.focus(); q.setSelectionRange(s + 1, s + 1);
+  updateSuggest();
+});
 $(".segmented").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-tab]");
   if (b) switchTab(b.dataset.tab);
@@ -737,20 +458,6 @@ $("#tr-btn").addEventListener("click", translate);
 $("#tr-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) translate(); });
 
 document.addEventListener("click", async (e) => {
-  const copy = e.target.closest(".copy-btn");
-  if (copy) {
-    await copyText(copy.dataset.copy);
-    copy.innerHTML = COPIED_ICON;
-    copy.classList.add("copied");
-    copy.title = "已复制";
-    clearTimeout(copy._timer);
-    copy._timer = setTimeout(() => {
-      copy.innerHTML = COPY_ICON;
-      copy.classList.remove("copied");
-      copy.title = "复制单词";
-    }, 1500);
-    return;
-  }
   const chip = e.target.closest("[data-word],[data-path]");
   if (chip && !chip.matches("button.play")) {
     if (chip.dataset.path) location.hash = `#/p/${encodeURIComponent(chip.dataset.path)}`;
@@ -817,7 +524,6 @@ $("#settings-form").addEventListener("submit", async (e) => {
 
 api("/api/status").then((s) => {
   aiEnabled = s.ai; keyMasked = s.key || ""; updateSettingsHint();
-  if (s.askModel) { modelCurrent = s.askModel; $("#model-name").textContent = s.askModel; }
   if (s.version) {
     $("#app-version").textContent = ` · v${s.version}`;
     $("#settings-version").textContent = `v${s.version}`;
