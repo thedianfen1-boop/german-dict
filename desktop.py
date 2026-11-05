@@ -65,7 +65,9 @@ def open_window():
         ]
         edge = next((p for p in candidates if p.exists()), None)
         if edge:
+            # --app 打开没有地址栏的独立窗口，看起来像一个桌面应用
             subprocess.Popen([str(edge), f"--app={URL}", "--window-size=1100,860"])
+            return
     webbrowser.open(URL)
 
 
