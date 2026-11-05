@@ -3,7 +3,7 @@
 
 我在以Netzverb 词典作为词库的基础上，优化了ui界面。接入deepseek api密钥即可解锁满血版，实现中文释义、用法、句子翻译、配图和中英文查词。
 
-支持 Windows 10/11 和 macOS。Windows 安装包不需要安装 Python；从源码运行需要 Python 3.10 以上。
+支持 Windows 10/11 和 macOS（Apple 芯片，目前为测试版）。使用安装包不需要安装 Python；从源码运行需要 Python 3.10 以上。
 
 神秘小动画宣传片https://www.bilibili.com/video/BV1j3xm6hE2T/?spm_id_from=333.1387.homepage.video_card.click&vd_source=9550160a6efcab58f1e57cbed5332119
 
@@ -32,12 +32,13 @@ Claude我们真厉害😂
 
 密钥只保存在你自己的电脑上（`%LOCALAPPDATA%\GermanDict\.env`）。卸载：开始菜单 → 德语词典 → 卸载德语词典。
 
-## 安装（macOS）
+## 安装（macOS 测试版）
 
-1. 安装 Python 3.10 以上版本（终端执行 `brew install python`，或从 [python.org](https://www.python.org/downloads/) 下载安装包）。
-2. 下载 `GermanDict-macOS.zip`（见 [Releases](../../releases)，Mac 安装包发布后才能下载；在此之前请从源码运行），解压后把 `GermanDict.app` 拖进「应用程序」文件夹，双击打开。
-   - 应用没有签名，首次打开若提示"无法验证开发者"：右键点击 GermanDict.app → 打开；或在终端执行 `xattr -cr /Applications/GermanDict.app`。
-3. 打开后点击页面右上角的 ⚙ 设置，填写 **DeepSeek API 密钥**（[获取](https://platform.deepseek.com/api_keys)）：用于中文释义、用法、翻译、配图关键词和中英文查词。不填也能查德语词条。
+目前的 Mac 安装包是测试版，只支持 Apple 芯片（M 系列），不支持 Intel Mac。它的功能比 Windows v2.0 少：没有问 AI、模型切换、复制按钮和 × 清空，冠词颜色也是旧版（der 蓝 / die 粉）。需要完整功能可以[从源码运行](#从源码运行)。
+
+1. 在 [macOS 测试版](../../releases/tag/mac-beta1)下载 `GermanDict-macOS.zip`，解压后把 `GermanDict.app` 拖进「应用程序」文件夹，双击打开。
+   - 应用没有签名。如果打不开，请到“系统设置 → 隐私与安全性”点“仍要打开”；如果提示应用已损坏，请在终端执行 `xattr -cr /Applications/GermanDict.app`。
+2. 打开后点击页面右上角的 ⚙ 设置，填写 **DeepSeek API 密钥**（[获取](https://platform.deepseek.com/api_keys)）：用于中文释义、用法、翻译、配图关键词和中英文查词。不填也能查德语词条。
 
 密钥保存在 `~/Library/Application Support/GermanDict/.env`。
 
